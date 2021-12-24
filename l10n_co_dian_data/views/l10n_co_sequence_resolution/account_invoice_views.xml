@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="invoice_form_seq_resolution" model="ir.ui.view">
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_move_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//sheet" position="before">
+                    <field name="warn_remaining" invisible="1"/>
+                    <field name="warn_inactive_resolution" invisible="1"/>
+                    <field name="einv_available_days" invisible="1"/>
+                    <field name="einv_available_numbers" invisible="1"/>
+                    <div class="alert alert-danger" role="alert" style="margin-bottom:0px;" attrs="{'invisible': [('warn_remaining', '!=', True)]}">
+                        <span style="font-weight:bold;font-size:18px;">¡Advertencia!</span>
+                        La resolución de facturación autorizada para este diario está a punto de vencer o la numeración autorizada se está agotando.
+                        <p style="font-weight:bold;padding-left:110px">
+                        Números restantes: <field name="einv_available_numbers"/><br/>
+                        Días restantes: <field name="einv_available_days"/><br/>
+                        Por favor, debe informar a la administración.</p>
+                    </div>
+                    <div class="alert alert-danger" role="alert" style="margin-bottom:0px;" attrs="{'invisible': [('warn_inactive_resolution', '!=', True)]}">
+                        <span style="font-weight:bold;font-size:18px;">¡Advertencia! </span>No existe una resolución de facturación autorizada activa.
+                        <span style="font-weight:bold;">Por favor, debe informar a la administración.</span>
+                    </div>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
