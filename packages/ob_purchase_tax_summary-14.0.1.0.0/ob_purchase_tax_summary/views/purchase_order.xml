@@ -1,0 +1,35 @@
+<odoo>
+
+    <record id="purchase_order_form_inherit" model="ir.ui.view">
+        <field name="name">purchase.order.form.inherit</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//group[hasclass('oe_subtotal_footer')]" position="replace">
+                <field name="notes" class="oe_inline" placeholder="Define your terms and conditions ..."/>
+                <group>
+                    <group>
+                        <field name="taxes" nolabel="1">
+                            <tree>
+                                <field name="name"/>
+                                <field name="account_id"/>
+                                <field name="amount" sum="TOTAL"/>
+                            </tree>
+                        </field>
+                    </group>
+                    <group class="oe_subtotal_footer oe_right">
+                        <field name="amount_untaxed" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                        <field name="amount_tax" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                        <div class="oe_subtotal_footer_separator oe_inline">
+                            <label for="amount_total"/>
+                        </div>
+                        <field name="amount_total" nolabel="1" class="oe_subtotal_footer_separator" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                    </group>
+                </group>
+            </xpath>
+            <field name="notes" position="replace"/>
+        </field>
+    </record>
+
+
+</odoo>
