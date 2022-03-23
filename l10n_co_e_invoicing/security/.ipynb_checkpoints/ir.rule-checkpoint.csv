@@ -1,0 +1,2 @@
+id,name,model_id:id,groups:id,perm_read,perm_write,perm_create,perm_unlink,"domain_force"
+rule_supplier_partner_restriction,res.partner.restriction,model_res_partner,l10n_co_e_invoicing.group_supplier_partner_restriction,1,1,1,1,"['|',('supplier_rank', '=', 0),('customer_rank', '>', 0)]"

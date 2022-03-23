@@ -1,0 +1,12 @@
+<odoo>
+    <data>
+        <record id="group_sale_order_soelco" model="res.groups">
+            <field name="name">Administracion Soelco</field>
+        </record>
+    </data>
+    <data>
+        <record id="group_supplier_partner_restriction" model="res.groups">
+            <field name="name">Restriccion de Proveedores</field>
+        </record>
+    </data>
+</odoo>
