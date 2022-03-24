@@ -763,6 +763,6 @@ class AccountInvoice(models.Model):
 
     @api.model
     def create(self, vals):
-        if self.env.user.partner_id.journal_id and self.move_type == 'out_invoice':
+        if self.env.user.partner_id.journal_id and (self.move_type == 'out_invoice' or not self.move_type):
             vals['journal_id']=self.env.user.partner_id.journal_id.id
-        return super().create(vals)
+        return super(AccountInvoice, self).create(vals)

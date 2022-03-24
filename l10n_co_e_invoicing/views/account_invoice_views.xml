@@ -132,34 +132,34 @@
         <field name="groups_id" eval="[(4,ref('l10n_co_e_invoicing.group_sale_order_soelco'))]"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='product_id']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='name']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='account_id']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='analytic_account_id']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='analytic_tag_ids']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='quantity']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='product_uom_id']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='price_unit']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='discount']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='tax_ids']" position="attributes">
-                <attribute name="readonly">1</attribute>
+                <attribute name="readonly"></attribute>
             </xpath>
         </field>
     </record>

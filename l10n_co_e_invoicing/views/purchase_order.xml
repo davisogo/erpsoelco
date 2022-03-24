@@ -11,7 +11,7 @@
     </record>
     <record model="ir.ui.view" id="view_purchase_order_form_inherit_2">
         <field name="model">purchase.order</field>
-        <field name="inherit_id" ref="purchase.purchase_order_form" />
+        <field name="inherit_id" ref="l10n_co_e_invoicing.view_purchase_order_form_inherit_1" />
         <field name="groups_id" eval="[(4,ref('l10n_co_e_invoicing.group_sale_order_soelco'))]"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='currency_id']" position="attributes">
