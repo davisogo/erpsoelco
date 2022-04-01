@@ -21,15 +21,15 @@ class ReportAccountAgedPartner(models.AbstractModel):
 				{move_line_fields},
 				account_move_line.partner_id AS partner_id,
 				partner.name AS partner_name,
-				partner.phone AS partner_phone,
+				partner.mobile AS partner_phone,
 				COALESCE(trust_property.value_text, 'normal') AS partner_trust,
 				COALESCE(account_move_line.currency_id, journal.currency_id) AS report_currency_id,
 				account_move_line.payment_id AS payment_id,
-				move.payment_reference AS payment_reference,
 				COALESCE(account_move_line.date_maturity, account_move_line.date) AS report_date,
 				account_move_line.expected_pay_date AS expected_pay_date,
 				move.move_type AS move_type,
 				move.name AS move_name,
+				move.payment_reference AS payment_reference,
 				journal.code AS journal_code,
 				account.name AS account_name,
 				account.code AS account_code,""" + ','.join([("""
@@ -42,7 +42,7 @@ class ReportAccountAgedPartner(models.AbstractModel):
 			JOIN account_move move ON account_move_line.move_id = move.id
 			JOIN account_journal journal ON journal.id = account_move_line.journal_id
 			JOIN account_account account ON account.id = account_move_line.account_id
-			JOIN res_partner partner ON partner.id = account_move_line.partner_id
+			LEFT JOIN res_partner partner ON partner.id = account_move_line.partner_id
 			LEFT JOIN ir_property trust_property ON (
 				trust_property.res_id = 'res.partner,'|| account_move_line.partner_id
 				AND trust_property.name = 'trust'
@@ -52,10 +52,12 @@ class ReportAccountAgedPartner(models.AbstractModel):
 			LEFT JOIN LATERAL (
 				SELECT part.amount, part.debit_move_id
 				FROM account_partial_reconcile part
+				WHERE part.max_date <= %(date)s
 			) part_debit ON part_debit.debit_move_id = account_move_line.id
 			LEFT JOIN LATERAL (
 				SELECT part.amount, part.credit_move_id
 				FROM account_partial_reconcile part
+				WHERE part.max_date <= %(date)s
 			) part_credit ON part_credit.credit_move_id = account_move_line.id
 			JOIN {period_table} ON (
 				period_table.date_start IS NULL
@@ -68,6 +70,7 @@ class ReportAccountAgedPartner(models.AbstractModel):
 			WHERE account.internal_type = %(account_type)s
 			GROUP BY account_move_line.id, partner.id, trust_property.id, journal.id, move.id, account.id,
 					 period_table.period_index, currency_table.rate, currency_table.precision
+			HAVING ROUND(account_move_line.balance - COALESCE(SUM(part_debit.amount), 0) + COALESCE(SUM(part_credit.amount), 0), currency_table.precision) != 0
 		""").format(
 			move_line_fields=self._get_move_line_fields('account_move_line'),
 			currency_table=self.env['res.currency']._get_query_currency_table(options),
@@ -76,6 +79,7 @@ class ReportAccountAgedPartner(models.AbstractModel):
 		params = {
 			'account_type': options['filter_account_type'],
 			'sign': 1 if options['filter_account_type'] == 'receivable' else -1,
+			'date': options['date']['date_to'],
 		}
 		return self.env.cr.mogrify(query, params).decode(self.env.cr.connection.encoding)
 
@@ -135,10 +139,27 @@ class ReportAccountAgedPartner(models.AbstractModel):
 			self._hierarchy_level('id'),
 		]
 
+	# def _show_line(self, report_dict, value_dict, current, options):
+	# 	current = dict(current)
+	# 	# import pdb; pdb.set_trace()
+	# 	if report_dict['columns'][3]['name'] == 'Debtors':
+	# 		report_dict['columns'][0] = {}
+	# 	print("=======",value_dict,'\n\n')
+	# 	# if value_dict.get('balance') == 0.0:
+	# 	# 	value_dict = {'period0': 0.0, 'period1': 0.0, 'period2': 0.0, 'period3': 0.0, 'period4': 0.0, 'period5': 0.0}
+	# 	# 	print('||||||||||||||||',value_dict)
+
+	# 	# Don't display an aml report line with all zero amounts.
+	# 	all_zero = all(value_dict[f] == 0 for f in ['period0', 'period1', 'period2', 'period3', 'period4', 'period5'])
+	# 	return super()._show_line(report_dict, value_dict, current, options) and not all_zero or 'id' not in current
+
 	def _show_line(self, report_dict, value_dict, current, options):
-		current = dict(current)
+		# Don't display an aml report line (except the header) with all zero amounts.
+		# print('\n\n',value_dict,'\n\n=======''\n\n',options)
 		if report_dict['columns'][3]['name'] == 'Debtors':
 			report_dict['columns'][0] = {}
-		# Don't display an aml report line with all zero amounts.
-		all_zero = all(value_dict[f] == 0 for f in ['period0', 'period1', 'period2', 'period3', 'period4', 'period5'])
-		return super()._show_line(report_dict, value_dict, current, options) and not all_zero or 'id' not in current
+		all_zero = all(
+			self.env.company.currency_id.is_zero(value_dict[f])
+			for f in ['period0', 'period1', 'period2', 'period3', 'period4', 'period5']
+		) and not value_dict.get('__count')
+		return super()._show_line(report_dict, value_dict, current, options) and not all_zero
