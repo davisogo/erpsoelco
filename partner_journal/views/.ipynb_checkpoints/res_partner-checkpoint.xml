@@ -1,0 +1,11 @@
+<odoo>
+    <record model="ir.ui.view" id="view_res_partner_form_inherit_1">
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="sales_team.res_partner_view_team" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='team_id']" position="after">
+                <field name="journal_id" string="Diario de Facturacion"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
