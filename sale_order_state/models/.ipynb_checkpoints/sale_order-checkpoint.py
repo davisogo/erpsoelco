@@ -20,10 +20,11 @@ class SaleOrder(models.Model):
     
     @api.depends('state', 'order_line.invoice_status')
     def _get_invoice_status(self):
-        res = super(SaleOrder, self)._get_invoice_status()
-        if self.invoice_status == 'to invoice':
-            invoice = self.env['account.move'].search([('invoice_origin','ilike','%'+self.name+'%'),('move_type','=','out_refund')])
-            for item in invoice:
-                self.invoice_status = 'reverse'
-            
+        for item in self:
+            res = super(SaleOrder, item)._get_invoice_status()
+            if item.invoice_status == 'to invoice':
+                invoice = item.env['account.move'].search([('invoice_origin','ilike','%'+item.name+'%'),('move_type','=','out_refund')])
+                for record in invoice:
+                    item.invoice_status = 'reverse'
+
                 
