@@ -466,7 +466,7 @@
                                                 <td class="text-right" style="white-space: nowrap;">
                                                     <t t-if="o.currency_id.name == 'COP'" t-esc="'$'"/>
                                                     <t t-if="o.currency_id.name != 'COP'" t-esc="o.currency_id.name"/>
-                                                    <t t-esc="'{0:,.2f}'.format(o.amount_residual)"/>
+                                                    <t t-esc="'{0:,.2f}'.format(o.amount_total)"/>
                                                 </td>
                                                 <td></td>
                                                 <td></td>
