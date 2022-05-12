@@ -31,7 +31,6 @@
     ],
 
     'data': [
-    
         'reports/invoice_report.xml',      
     ],
     'installable': True

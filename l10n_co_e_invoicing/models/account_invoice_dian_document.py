@@ -192,7 +192,7 @@ class AccountInvoiceDianDocument(models.Model):
 
     def action_send_mail(self):
         msg = _("Your invoice has not been validated")
-        template_id = self.env.ref('l10n_co_e_invoicing.email_template_for_einvoice').id
+        template_id = self.env.ref(self.env['ir.config_parameter'].sudo().search([('key', '=', 'print.format.electronic.invoice')], limit=1).value).id
         template = self.env['mail.template'].browse(template_id)
 
         if not self.invoice_id.name:

@@ -195,7 +195,7 @@ class AccountInvoice(models.Model):
             message loaded by default
         """
         self.ensure_one()
-        template = self.env.ref('l10n_co_e_invoicing.email_template_for_einvoice')
+        template = self.env.ref(self.env['ir.config_parameter'].sudo().search([('key', '=', 'print.format.electronic.invoice')], limit=1).value)
         # template = self.env.ref('account.email_template_edi_invoice', raise_if_not_found=False)
 
         xml_attachment_file = False
