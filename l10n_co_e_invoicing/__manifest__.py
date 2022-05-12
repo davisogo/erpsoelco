@@ -24,7 +24,7 @@
     },
     "data": [
         'security/ir.model.access.csv',
-        'data/ir_config_parameter',
+        'data/ir_config_parameter.xml',
         "views/account_invoice_views.xml",
         "views/account_invoice_dian_document_views.xml",
         "views/account_journal_views.xml",
