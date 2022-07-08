@@ -3,8 +3,7 @@ sale_order_automation
 partner_emails_history
 om_account_standard_report
 abs_top_sold_products
-access_restriction_by_ip
 advance_cash_flow_statements
 excel_import_export
 individual_product_report
-km_sales_report_by_salesperson
+
