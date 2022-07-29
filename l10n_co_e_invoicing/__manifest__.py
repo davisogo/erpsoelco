@@ -1,20 +1,15 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 Diego Carvajal <Github@diegoivanc>
-# Copyright 2019 Joan Marín <Github@joanmarin>
-# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
+# Copyright 2021 Diego Carvajal <Github@diegoivanc>
 
 {
     "name": "Colombian E-Invoicing",
     "category": "Financial",
     "version": "14.0",
-    "author": "Diego Carvajal Github@diegoivanc,"
-              "EXA Auto Parts Github@exaap, "
-              "Joan Marín Github@joanmarin"
-              "Bernardo D. Lara bl@todoo.co",
+    "author": "Diego Carvajal Github@diegoivanc,",
     "website": "http://www.dracosoft.com.co",
-    "license": "AGPL-3",
+    'license': 'OPL-1',
     "summary": "Colombian E-Invoicing",
-    "depends": ['base',"l10n_co_dian_data",'sale','purchase','sales_team'],
+    "depends": ["l10n_co_dian_data",],
     'external_dependencies': {
         'python': [
             'validators',
@@ -24,7 +19,6 @@
     },
     "data": [
         'security/ir.model.access.csv',
-        'data/ir_config_parameter.xml',
         "views/account_invoice_views.xml",
         "views/account_invoice_dian_document_views.xml",
         "views/account_journal_views.xml",
@@ -36,6 +30,7 @@
         "report/account_move_reports.xml",
         "report/account_move_templates.xml",
         "data/product_scheme_data.xml",
+        "data/cron_acp_tacita_dian.xml",
     ],
     "installable": True,
 }

@@ -19,7 +19,7 @@ class ResPartner(models.Model):
 
     _inherit = "res.partner"
 
-    firstname = fields.Char("First name", index=True)
+    firstname = fields.Char("Primer Nombre", index=True)
     lastname = fields.Char("Last name", index=True)
     name = fields.Char(
         compute="_compute_name",

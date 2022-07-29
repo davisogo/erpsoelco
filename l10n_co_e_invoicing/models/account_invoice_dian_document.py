@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 Joan Marín <Github@joanmarin>
-# Copyright 2019 Diego Carvajal <Github@diegoivanc>
-# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
+# Copyright 2021 Diego Carvajal <Github@diegoivanc>
+
 
 import sys
 import importlib
 importlib.reload(sys)
 import base64
 import re
+import zipfile
 
 #sys.setdefaultencoding('utf8')
 #from StringIO import StringIO
@@ -60,6 +60,7 @@ class AccountInvoiceDianDocument(models.Model):
     xml_file = fields.Binary(string='XML File')
     zipped_filename = fields.Char(string='Zipped Filename')
     zipped_file = fields.Binary(string='Zipped File')
+    exp_accepted_file = fields.Binary(string='Explicit Accepted File')
     zip_key = fields.Char(string='ZipKey')
     mail_sent = fields.Boolean(string='Mail Sent?', tracking=True)
     ar_xml_filename = fields.Char(string='ApplicationResponse XML Filename')
@@ -138,9 +139,6 @@ class AccountInvoiceDianDocument(models.Model):
             self.company_id.certificate_password)
 
         xml_soap_values['trackId'] = self.cufe_cude
-        _logger.info('trackid')
-        _logger.info(self.cufe_cude)
-
         return xml_soap_values
 
 
@@ -179,44 +177,54 @@ class AccountInvoiceDianDocument(models.Model):
             pdf = template._render_qweb_pdf(self.invoice_id.id)
         else:
             pdf = self.env.ref('account.account_invoices').render_qweb_pdf(self.invoice_id.id)
-        pdf = base64.b64encode(pdf[0])
+        pdf = pdf[0]
         pdf_name = re.sub(r'\W+', '', self.invoice_id.name) + '.pdf'
 
-        _logger.info('pdf')
-        _logger.info('pdf')
-        _logger.info('pdf')
-        _logger.info(pdf_name)
         #pdf = self.env['ir.actions.report'].sudo()._run_wkhtmltopdf([self.invoice_id.id], template.report_name)
 
         return pdf
 
     def action_send_mail(self):
         msg = _("Your invoice has not been validated")
-        template_id = self.env.ref(self.env['ir.config_parameter'].sudo().search([('key', '=', 'print.format.electronic.invoice')], limit=1).value).id
+        template_id = self.env.ref('l10n_co_e_invoicing.email_template_for_einvoice').id
         template = self.env['mail.template'].browse(template_id)
 
         if not self.invoice_id.name:
             raise UserError(msg)
-        
+
+        buff = BytesIO()
+        zip_file = zipfile.ZipFile(buff, mode='w')
+
         xml_attachment_file = False
         if self.ar_xml_file and self.xml_file:
             xml_without_signature = global_functions.get_template_xml(self._get_attachment_values(), 'attachment')
             
             xml_attachment_file = self.env['ir.attachment'].create({
-                'name': self.invoice_id.name + '-attachment.xml',
+                'name': self.xml_filename,
                 'type': 'binary',
                 'datas': b64encode(xml_without_signature.encode()).decode("utf-8", "ignore")})
 
-        xml_attachment = self.env['ir.attachment'].create({
-            'name': self.xml_filename,
-            'type': 'binary',
-            'datas': self.xml_file})
-        pdf_attachment = self.env['ir.attachment'].create({
-            'name': self.invoice_id.name + '.pdf',
-            'type': 'binary',
-            'datas': self._get_pdf_file()})
+        if xml_attachment_file:
+            zip_content = BytesIO()
+            zip_content.write(
+                base64.b64decode(base64.b64encode(xml_without_signature.encode()).decode("utf-8", "ignore")))
+            zip_file.writestr(self.xml_filename, zip_content.getvalue())
 
-        attach_ids = [xml_attachment.id, pdf_attachment.id]
+        zip_content = BytesIO()
+        zip_content.write(base64.b64decode(base64.b64encode(self._get_pdf_file())))
+        zip_file.writestr(self.xml_filename.replace('.xml', '.pdf'), zip_content.getvalue())
+
+        zip_file.close()
+        zipped_file = base64.b64encode(buff.getvalue())
+        buff.close()
+
+        attachment = self.env['ir.attachment'].create({
+            'name': self.xml_filename.replace('.xml', '.zip'),
+            'type': 'binary',
+            'datas': zipped_file,
+        })
+
+        attach_ids = [attachment.id]
         if xml_attachment_file:
             attach_ids.append(xml_attachment_file.id)
 
@@ -225,15 +233,9 @@ class AccountInvoiceDianDocument(models.Model):
         else:
             template.attachment_ids = [(6, 0, attach_ids)]
 
+        template.attachment_ids = [(6, 0, attach_ids)]
         template.send_mail(self.invoice_id.id, force_send=True)
         self.write({'mail_sent': True})
-        #xml_attachment.unlink()
-        #pdf_attachment.unlink()
-
-        if self.invoice_id.invoice_type_code in ('01', '02'):
-            #ar_xml_attachment.unlink()
-            _logger.info('dasda')
-
         return True
 
 
@@ -403,9 +405,7 @@ class AccountInvoiceDianDocument(models.Model):
 
         active_dian_resolution = self.invoice_id._get_active_dian_resolution()
         einvoicing_taxes = self.invoice_id._get_einvoicing_taxes()
-        _logger.info(self.invoice_id.create_date)
         date_format = str(self.invoice_id.create_date)[0:19]
-        _logger.info(date_format)
         create_date = datetime.strptime(date_format, '%Y-%m-%d %H:%M:%S')
         create_date = create_date.replace(tzinfo=timezone('UTC'))
         ID = self.invoice_id.name
@@ -495,8 +495,6 @@ class AccountInvoiceDianDocument(models.Model):
                 software_security_code['SoftwareSecurityCodeUncoded'],
             'software_security_code':
                 software_security_code['SoftwareSecurityCode']})
-        _logger.info('lo q envia')
-        _logger.info(self.invoice_id.payment_mean_code_id)
         return {
             'InvoiceAuthorization': active_dian_resolution['resolution_number'],
             'StartDate': active_dian_resolution['date_from'],
@@ -538,7 +536,17 @@ class AccountInvoiceDianDocument(models.Model):
             'TaxExclusiveAmount': '{:.2f}'.format(self.invoice_id.amount_untaxed),
             'TaxInclusiveAmount': '{:.2f}'.format(TaxInclusiveAmount),#ValTot
             'PayableAmount': '{:.2f}'.format(PayableAmount),
+            'OrderReference': self.invoice_id.orden_compra or '',
             }
+
+    def _get_accepted_values(self):
+        xml_values = self._get_xml_values(False)
+        xml_values['CustomizationID'] = self.invoice_id.operation_type
+        active_dian_resolution = self.invoice_id._get_active_dian_resolution()
+        xml_values['InvoiceControl'] = active_dian_resolution
+        xml_values['InvoiceTypeCode'] = self.invoice_id.invoice_type_code
+        xml_values['InvoiceLines'] = self.invoice_id._get_invoice_lines()
+        return xml_values
 
     def _get_invoice_values(self):
         xml_values = self._get_xml_values(False)
@@ -670,8 +678,19 @@ class AccountInvoiceDianDocument(models.Model):
         xml_values['DiscrepancyResponseCode'] = self.invoice_id.discrepancy_response_code_id.code
         xml_values['DiscrepancyDescription'] = self.invoice_id.discrepancy_response_code_id.name
         xml_values['DebitNoteLines'] = self.invoice_id._get_invoice_lines()
-
         return xml_values
+
+    def accuse_recibo(self):
+        accepted_xml_without_signature = global_functions.get_template_xml(self._get_accepted_values(), 'AceptacionExpresa')
+        accepted_xml_with_signature = global_functions.get_xml_with_signature(accepted_xml_without_signature, self.company_id.signature_policy_url, self.company_id.signature_policy_description, self.company_id.certificate_file, self.company_id.certificate_password)
+        self.write({'exp_accepted_file': b64encode(self._get_acp_zipped_file(accepted_xml_with_signature)).decode("utf-8", "ignore")})
+        self.action_sent_accepted_file()
+
+    def express_acceptation(self):
+        accepted_xml_without_signature = global_functions.get_template_xml(self._get_accepted_values(),'AceptacionExpresa')
+        accepted_xml_with_signature = global_functions.get_xml_with_signature(accepted_xml_without_signature, self.company_id.signature_policy_url, self.company_id.signature_policy_description, self.company_id.certificate_file, self.company_id.certificate_password)
+        self.write({'exp_accepted_file': b64encode(self._get_acp_zipped_file(accepted_xml_with_signature)).decode("utf-8", "ignore")})
+        self.action_sent_accepted_file()
 
     def _get_xml_file(self):
         # if self.invoice_id.type == "out_invoice":
@@ -686,9 +705,6 @@ class AccountInvoiceDianDocument(models.Model):
         #     xml_without_signature = global_functions.get_template_xml(
         #         self._get_debit_note_values(),
         #         'DebitNote')
-
-        _logger.info('credit')
-        _logger.info(self.invoice_id.refund_type)
 
         if self.invoice_id.move_type == "out_invoice" and not self.invoice_id.refund_type:
             xml_without_signature = global_functions.get_template_xml(
@@ -712,6 +728,15 @@ class AccountInvoiceDianDocument(models.Model):
 
         return xml_with_signature
 
+    def _get_acp_zipped_file(self, file):
+        output = BytesIO()
+        zipfile = ZipFile(output, mode='w')
+        zipfile_content = BytesIO()
+        zipfile_content.write(b64decode(file))
+        zipfile.writestr(self.xml_filename, zipfile_content.getvalue())
+        zipfile.close()
+        return output.getvalue()
+
     def _get_zipped_file(self):
         output = BytesIO()
         zipfile = ZipFile(output, mode='w')
@@ -734,14 +759,58 @@ class AccountInvoiceDianDocument(models.Model):
             self.company_id.certificate_file,
             self.company_id.certificate_password)
 
-
-        #_logger.info('ZIPPER2')
-
         xml_soap_values['fileName'] = self.zipped_filename.replace('.zip', '')
         xml_soap_values['contentFile'] = self.zipped_file.decode("utf-8", "ignore")
         xml_soap_values['testSetId'] = self.company_id.test_set_id
 
         return xml_soap_values
+
+    def _get_AcceptedSendTestSetAsync_values(self, accepted_file):
+        xml_soap_values = global_functions.get_xml_soap_values(
+            self.company_id.certificate_file,
+            self.company_id.certificate_password)
+
+        xml_soap_values['fileName'] = self.zipped_filename.replace('.zip', '')
+        xml_soap_values['contentFile'] = accepted_file.decode("utf-8", "ignore")
+        xml_soap_values['testSetId'] = self.company_id.test_set_id
+        return xml_soap_values
+
+    def _get_AcceptedSendBillAsync_values(self, accepted_file):
+        xml_soap_values = global_functions.get_xml_soap_values(
+            self.company_id.certificate_file,
+            self.company_id.certificate_password)
+
+        xml_soap_values['fileName'] = self.zipped_filename.replace('.zip', '')
+        xml_soap_values['contentFile'] = accepted_file.decode("utf-8", "ignore")
+
+        return xml_soap_values
+
+    def action_sent_accepted_file(self, accepted_file):
+        wsdl = DIAN['wsdl-hab']
+        if self.company_id.profile_execution_id == '1':
+            wsdl = DIAN['wsdl']
+            SendBillAsync_values = self._get_AcceptedSendBillAsync_values(accepted_file)
+            SendBillAsync_values['To'] = wsdl.replace('?wsdl', '')
+            xml_soap_with_signature = global_functions.get_xml_soap_with_signature(
+                global_functions.get_template_xml(SendBillAsync_values, 'SendBillSync'),
+                SendBillAsync_values['Id'],
+                self.company_id.certificate_file,
+                self.company_id.certificate_password)
+        else:
+            SendTestSetAsync_values = self._get_AcceptedSendTestSetAsync_values(accepted_file)
+            SendTestSetAsync_values['To'] = wsdl.replace('?wsdl', '')
+            xml_soap_with_signature = global_functions.get_xml_soap_with_signature(
+                global_functions.get_template_xml(SendTestSetAsync_values, 'SendTestSetAsync'),
+                SendTestSetAsync_values['Id'],
+                self.company_id.certificate_file,
+                self.company_id.certificate_password)
+
+        response = post(
+            wsdl,
+            headers={'content-type': 'application/soap+xml;charset=utf-8'},
+            data=etree.tostring(xml_soap_with_signature, encoding="unicode"))
+        _logger.info(response)
+        return True
 
     def _get_SendBillAsync_values(self):
         xml_soap_values = global_functions.get_xml_soap_values(
@@ -752,9 +821,6 @@ class AccountInvoiceDianDocument(models.Model):
         xml_soap_values['contentFile'] = self.zipped_file.decode("utf-8", "ignore")
 
         return xml_soap_values
-
-
-
 
     def action_sent_zipped_file(self):
         # if self._get_GetStatus(False):
@@ -769,11 +835,8 @@ class AccountInvoiceDianDocument(models.Model):
         b = "http://schemas.datacontract.org/2004/07/UploadDocumentResponse"
         wsdl = DIAN['wsdl-hab']
 
-        _logger.info('entrooo action sent_zipped')
-
         if self.company_id.profile_execution_id == '1':
             wsdl = DIAN['wsdl']
-            _logger.info('entrooo produccion')
             SendBillAsync_values = self._get_SendBillAsync_values()
             SendBillAsync_values['To'] = wsdl.replace('?wsdl', '')
             xml_soap_with_signature = global_functions.get_xml_soap_with_signature(
@@ -795,8 +858,6 @@ class AccountInvoiceDianDocument(models.Model):
                 wsdl,
                 headers={'content-type': 'application/soap+xml;charset=utf-8'},
                 data=etree.tostring(xml_soap_with_signature, encoding="unicode"))
-            _logger.info('respuesta post')
-            _logger.info(response.status_code)
             if response.status_code == 200:
                 if self.company_id.profile_execution_id == '1':
                     self.write({'state': 'sent'})
@@ -827,7 +888,6 @@ class AccountInvoiceDianDocument(models.Model):
         b = "http://schemas.datacontract.org/2004/07/UploadDocumentResponse"
 
         if self.company_id.profile_execution_id == '1':
-            _logger.info('entro if')
             SendBillAsync_values = self._get_SendBillAsync_values()
             xml_soap_with_signature = global_functions.get_xml_soap_with_signature(
                 global_functions.get_template_xml(
@@ -837,7 +897,6 @@ class AccountInvoiceDianDocument(models.Model):
                 self.company_id.certificate_file,
                 self.company_id.certificate_password)
         elif self.company_id.profile_execution_id == '2':
-            _logger.info('entro else')
             SendTestSetAsync_values = self._get_SendTestSetAsync_values()
             xml_soap_with_signature = global_functions.get_xml_soap_with_signature(
                 global_functions.get_template_xml(
@@ -851,10 +910,6 @@ class AccountInvoiceDianDocument(models.Model):
             DIAN['wsdl-hab'],
             headers={'content-type': 'application/soap+xml;charset=utf-8'},
             data=etree.tostring(xml_soap_with_signature, encoding = "unicode"))
-
-        _logger.info(etree.tostring(xml_soap_with_signature, encoding = "unicode"))
-        _logger.info('response 1')
-        _logger.info(response)
 
         if response.status_code == 200:
             root = etree.fromstring(response.text)
@@ -898,7 +953,6 @@ class AccountInvoiceDianDocument(models.Model):
                 data=etree.tostring(xml_soap_with_signature, encoding = "unicode"))
 
             if response.status_code == 200:
-                _logger.info('_get_GetStatus')
                 return self._get_status_response(response, send_mail)
             else:
                 raise ValidationError(msg1 % (response.status_code, response.reason))
@@ -951,8 +1005,6 @@ class AccountInvoiceDianDocument(models.Model):
             headers={'content-type': 'application/soap+xml;charset=utf-8'},
             data=etree.tostring(xml_soap_with_signature, encoding = "unicode"))
 
-        _logger.info('response 2')
-        _logger.info(response)
         if response.status_code == 200:
             #root = etree.fromstring(response.content)
             #root = etree.tostring(root, encoding='utf-8')
